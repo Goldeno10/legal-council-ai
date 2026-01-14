@@ -1,0 +1,40 @@
+# --- Python & Environments ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# --- FastAPI / Web ---
+.cache
+.pytest_cache
+htmlcov/
+*.log
+
+# --- AI/ML Specifics ---
+# Ignore large model weights and datasets
+models/
+weights/
+data/
+!data/README.md
+*.h5
+*.pth
+*.onnx
+*.joblib
+
+# --- IDEs & OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Docling / Document Processing ---
+# If your project generates temporary conversion outputs
+output/
+scratch/
