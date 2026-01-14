@@ -1,0 +1,13 @@
+langchain==0.3.0
+langchain-deepseek
+langgraph
+docling
+presidio-analyzer
+presidio-anonymizer
+spacy
+chromadb
+sentence-transformers
+fastapi
+uvicorn
+python-multipart
+pydantic
