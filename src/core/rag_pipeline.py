@@ -2,7 +2,13 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+
 class LegalRAG:
+    """
+    Retrieval-Augmented Generation (RAG) pipeline for legal documents.
+    Indexes legal texts into a vector database and retrieves relevant clauses
+    based on user queries.
+    """
     def __init__(self):
         # Use a high-quality embedding model (e.g., BAAI/bge-large-en)
         self.embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")

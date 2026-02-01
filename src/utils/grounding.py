@@ -1,5 +1,6 @@
 import re
 
+
 def verify_grounding(raw_text: str, clause_reference: str) -> bool:
     """
     Search for the identified clause in the raw text to ensure 

@@ -1,7 +1,12 @@
 from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
 
+
 def anonymize_contract(text: str) -> str:
+    """
+    Anonymizes personally identifiable information (PII) from the legal contract text.
+    Uses Presidio to detect and mask entities like names, phone numbers, emails, and locations.
+    """
     analyzer = AnalyzerEngine()
     anonymizer = AnonymizerEngine()
     

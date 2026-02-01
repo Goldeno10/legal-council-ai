@@ -21,7 +21,7 @@ htmlcov/
 # Ignore large model weights and datasets
 models/
 weights/
-data/
+# data/
 !data/README.md
 *.h5
 *.pth

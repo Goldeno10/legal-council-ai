@@ -18,7 +18,6 @@ from src.core.rag_pipeline import LegalRAG
 rag_engine = LegalRAG()
 
 
-
 # 1. Define the State Object
 class AgentState(TypedDict):
     # 'add_messages' allows the state to append new chat history

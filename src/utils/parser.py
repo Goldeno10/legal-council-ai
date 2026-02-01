@@ -1,10 +1,10 @@
 from docling.document_converter import DocumentConverter
 
+
 def parse_legal_document(file_path: str) -> str:
     """
     Converts complex legal PDFs into structured Markdown to preserve 
     clause hierarchy and table data.
-
 
     Example usage:
     md_content = parse_legal_document("employment_contract.pdf")
