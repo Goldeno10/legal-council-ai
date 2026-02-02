@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from langchain_deepseek import ChatDeepSeek
+from get_model import get_model
+# from langchain_deepseek import ChatDeepSeek
 from langchain_core.prompts import ChatPromptTemplate
 
 # Define what we want to find in the contract
@@ -19,7 +20,8 @@ def get_extraction_agent():
     result = agent.invoke({"contract_text": md_content})
     print(result.non_compete_clause)
     """
-    llm = ChatDeepSeek(model="deepseek-reasoner", temperature=0)
+    # llm = ChatDeepSeek(model="deepseek-reasoner", temperature=0)
+    llm = get_model(temperature=0)
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are an expert legal analyst. Extract the following details from the contract into a structured JSON format."),

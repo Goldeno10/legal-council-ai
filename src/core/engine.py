@@ -10,8 +10,10 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from src.agents.extractor import get_extraction_agent
 from src.agents.analyzer import get_analyzer_agent
 from src.agents.translator import get_translator_agent
+from src.agents.get_model import get_model
 
 from src.core.rag_pipeline import LegalRAG
+
 
 
 # Initialize the RAG engine globally or within the node
@@ -92,7 +94,9 @@ def chat_node(state: AgentState):
     context_text = "\n\n".join([doc.page_content for doc in relevant_chunks])
     
     # 2. GENERATION: Ground the answer in the retrieved context
-    llm = ChatDeepSeek(model="deepseek-chat")
+    # llm = ChatDeepSeek(model="deepseek-chat")
+    llm = get_model(model="deepseek-chat")
+
     system_msg = f"""
     You are a legal assistant. Answer the user's question ONLY using the provided context.
     If the answer isn't in the context, say you don't know.

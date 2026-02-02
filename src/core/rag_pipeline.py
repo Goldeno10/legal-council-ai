@@ -1,5 +1,5 @@
+from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
@@ -10,8 +10,13 @@ class LegalRAG:
     based on user queries.
     """
     def __init__(self):
-        # Use a high-quality embedding model (e.g., BAAI/bge-large-en)
-        self.embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
+        if os.getenv("USE_LOCAL_AI") == "true":
+            # Uses Ollama to generate embeddings locally
+            self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
+        else:
+            # Uses high-performance HuggingFace embeddings locally (CPU/GPU)
+            from langchain_huggingface import HuggingFaceEmbeddings
+            self.embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
         self.vector_db = None
 
     def index_document(self, text: str, doc_id: str):
