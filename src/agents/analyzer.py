@@ -1,6 +1,7 @@
 from typing import List
 from pydantic import BaseModel, Field
-from langchain_deepseek import ChatDeepSeek
+# from langchain_deepseek import ChatDeepSeek
+from get_model import get_model
 from langchain_core.prompts import ChatPromptTemplate
 
 class RiskItem(BaseModel):
@@ -17,7 +18,8 @@ class LegalAnalysis(BaseModel):
 
 def get_analyzer_agent():
     # We use 'deepseek-reasoner' for its chain-of-thought capabilities
-    llm = ChatDeepSeek(model="deepseek-reasoner", temperature=0)
+    # llm = ChatDeepSeek(model="deepseek-reasoner", temperature=0)
+    llm = get_model(temperature=0)
     
     # Define the "Playbook" - this is your system's "Opinion"
     playbook = """

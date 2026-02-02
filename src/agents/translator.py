@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from langchain_deepseek import ChatDeepSeek
+from get_model import get_model
 from langchain_core.prompts import ChatPromptTemplate
 
 
@@ -21,7 +22,8 @@ def get_translator_agent():
     clear, actionable advice for non-lawyers.
     """
     # Using 'deepseek-reasoner' ensures the 'Why' is processed before the 'How'
-    llm = ChatDeepSeek(model="deepseek-reasoner", temperature=0.3)
+    # llm = ChatDeepSeek(model="deepseek-reasoner", temperature=0.3)
+    llm = get_model(temperature=0.3)
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a compassionate, expert Legal Career Coach. 
