@@ -1,0 +1,34 @@
+pip install langchain langchain-community langchain-ollama langchain-deepseek langgraph
+
+
+2. Document Ingestion (The "Staff" Level Parsers)
+Standard PDF readers won't cut it for legal docs. Docling (IBM) is the current industry leader for layout-aware parsing.
+
+# Docling for high-fidelity PDF-to-Markdown
+pip install docling
+
+# Microsoft Presidio for the PII/Privacy scrubbing layer
+pip install docling presidio-analyzer presidio-anonymizer spacy
+python -m spacy download en_core_web_lg
+
+
+3. Vector Database & RAG
+For the rag_pipeline.py to handle semantic search and clause retrieval.
+bash
+# ChromaDB is the best local-first vector store for legal privacy
+pip install chromadb 
+
+# Sentence Transformers for high-quality local embeddings
+pip install sentence-transformers huggingface_hub
+Use code with caution.
+
+4. Production API & Infrastructure
+To run the main.py and handle the streaming responses.
+bash
+pip install fastapi uvicorn python-multipart pydantic-settings
+Use code with caution.
+
+
+
+Pro-Tip for Local Performance:
+When running locally, legal documents can be heavy. I recommend downloading the llama3.2:3b for the Translator (fast) and mistral:7b or llama3.1:8b for the Extractor/Analyzer (more accurate).
