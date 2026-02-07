@@ -1,5 +1,6 @@
 pip install langchain langchain-community langchain-ollama langchain-deepseek langgraph
-
+ip install langchain_huggingface
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
 
 2. Document Ingestion (The "Staff" Level Parsers)
 Standard PDF readers won't cut it for legal docs. Docling (IBM) is the current industry leader for layout-aware parsing.
@@ -8,7 +9,9 @@ Standard PDF readers won't cut it for legal docs. Docling (IBM) is the current i
 pip install docling
 
 # Microsoft Presidio for the PII/Privacy scrubbing layer
-pip install docling presidio-analyzer presidio-anonymizer spacy
+pip install docling --extra-index-url https://download.pytorch.org/whl/cpu
+
+pip install presidio-analyzer presidio-anonymizer spacy
 python -m spacy download en_core_web_lg
 
 
@@ -25,10 +28,14 @@ Use code with caution.
 4. Production API & Infrastructure
 To run the main.py and handle the streaming responses.
 bash
-pip install fastapi uvicorn python-multipart pydantic-settings
+pip install "fastapi[standard]" uvicorn python-multipart pydantic-settings
 Use code with caution.
 
 
 
 Pro-Tip for Local Performance:
 When running locally, legal documents can be heavy. I recommend downloading the llama3.2:3b for the Translator (fast) and mistral:7b or llama3.1:8b for the Extractor/Analyzer (more accurate).
+
+# From the project root
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from langchain_deepseek import ChatDeepSeek
-from get_model import get_model
+from .get_model import get_model
 from langchain_core.prompts import ChatPromptTemplate
 
 

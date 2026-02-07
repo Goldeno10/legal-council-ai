@@ -1,3 +1,4 @@
+import os
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -12,7 +13,7 @@ class LegalRAG:
     def __init__(self):
         if os.getenv("USE_LOCAL_AI") == "true":
             # Uses Ollama to generate embeddings locally
-            self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
+            self.embeddings = OllamaEmbeddings(model="nomic-embed-text:v1.5", base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/"))
         else:
             # Uses high-performance HuggingFace embeddings locally (CPU/GPU)
             from langchain_huggingface import HuggingFaceEmbeddings
