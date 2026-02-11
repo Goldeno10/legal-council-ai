@@ -2,6 +2,11 @@ import json
 import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 from langchain_core.messages import HumanMessage
 from src.core.engine import create_legal_engine
 from src.utils.parser import parse_legal_document
@@ -11,6 +16,36 @@ from src.utils.scrub import anonymize_contract
 app = FastAPI(title="LegalCouncil AI")
 engine = create_legal_engine()
 doc_store = {}
+
+
+
+# Allow browser to talk to API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+from pydantic import BaseModel
+
+def serialize_data(data):
+    """Helper to convert Pydantic models to dicts for JSON serialization"""
+    if isinstance(data, BaseModel):
+        return data.model_dump()
+    if isinstance(data, dict):
+        return {k: serialize_data(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [serialize_data(i) for i in data]
+    return data
+
+
+# Serve the HTML file
+@app.get("/", response_class=HTMLResponse)
+async def get_ui():
+    with open("templates/index.html", "r") as f:
+        return f.read()
+
 
 @app.post("/analyze")
 async def analyze_document(file: UploadFile = File(...)):
@@ -38,11 +73,11 @@ async def analyze_document(file: UploadFile = File(...)):
         async for chunk in engine.astream(initial_state, config=config, stream_mode="updates"):
             # 'chunk' is a dict mapping node names to their state updates
             node_name = list(chunk.keys())[0]
-            data = chunk[node_name]
+            clean_data = serialize_data(chunk[node_name])
+            # data = chunk[node_name]
             
             # Send an SSE event for each completed node
-            yield f"data: {json.dumps({'node': node_name, 'status': 'completed', 'update': data})}\n\n"
-
+            yield f"data: {json.dumps({'node': node_name, 'status': 'completed', 'update': clean_data})}\n\n"
         yield f"data: {json.dumps({'status': 'done', 'thread_id': thread_id})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

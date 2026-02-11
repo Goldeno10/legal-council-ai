@@ -87,4 +87,16 @@ def test_scrub_consistency():
     assert "google.com" not in scrubbed
     assert "212" not in scrubbed 
 
-
+# test parse_legal_document with a sample PDF file
+def test_parse_legal_document():
+    from src.utils.parser import parse_legal_document
+    # Use a sample PDF file path (ensure this file exists for the test)
+    sample_pdf = "tests/sample_contract.pdf"
+    
+    md_content = parse_legal_document(sample_pdf)
+    
+    assert isinstance(md_content, str)
+    assert len(md_content) > 0
+    # Check for some expected content from the sample PDF in markdown form
+    assert "Sedher" in md_content
+    assert "George A. Baidoo, AKC" in md_content

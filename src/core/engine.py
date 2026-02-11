@@ -1,5 +1,6 @@
-from typing import Annotated, List, TypedDict, Optional, Literal
 import uuid
+from typing import Annotated, List, TypedDict, Optional, Literal
+from langchain_core.messages import SystemMessage
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import InMemorySaver
@@ -43,38 +44,132 @@ def indexing_node(state: AgentState):
     rag_engine.index_document(raw_text, doc_id=doc_id)
     return {"errors": []}
 
-def extractor_node(state: AgentState):
-    # Guard against empty input before calling LLM
-    if not state.get("raw_text"):
-        return {"errors": ["No text provided for extraction"]}
+# def extractor_node(state: AgentState):
+#     # Guard against empty input before calling LLM
+#     if not state.get("raw_text"):
+#         return {"errors": ["No text provided for extraction"]}
         
+#     agent = get_extraction_agent()
+#     try:
+#         result = agent.invoke({"contract_text": state["raw_text"][:12000]})
+#         return {"extracted_data": result}
+#     except Exception as e:
+#         return {"errors": [f"Extraction Error: {str(e)}"]}
+def extractor_node(state: AgentState):
     agent = get_extraction_agent()
     try:
-        result = agent.invoke({"contract_text": state["raw_text"][:100000]})
-        return {"extracted_data": result}
+        input_data = {"contract_text": state["raw_text"][:30000]}
+        
+        # Check if the agent is a function (Local mode) or Runnable (Cloud mode)
+        if callable(agent) and not hasattr(agent, "invoke"):
+            # It's our custom local_chain function
+            result = agent(input_data)
+        else:
+            # It's a standard LangChain Runnable
+            result = agent.invoke(input_data)
+            
+        # Convert Pydantic to dict for the state
+        return {"extracted_data": result.model_dump() if hasattr(result, "model_dump") else result.dict() if hasattr(result, "dict") else result}
+        
     except Exception as e:
+        print(f"Node Error: {e}")
         return {"errors": [f"Extraction Error: {str(e)}"]}
+
 
 def analyzer_node(state: AgentState):
     agent = get_analyzer_agent()
     result = agent.invoke({"extracted_json": state["extracted_data"]})
     return {"analysis": result}
 
+# def translator_node(state: AgentState):
+#     agent = get_translator_agent()
+#     result = agent.invoke({"analysis_json": state["analysis"]})
+#     return {"final_summary": result}
+
 def translator_node(state: AgentState):
+    if state.get("errors"): return state
+    
     agent = get_translator_agent()
-    result = agent.invoke({"analysis_json": state["analysis"]})
-    return {"final_summary": result}
+    input_data = {"analysis_json": state["analysis"]}
+    
+    try:
+        # HANDLE BOTH FUNCTION AND RUNNABLE
+        if callable(agent) and not hasattr(agent, "invoke"):
+            result = agent(input_data)
+        else:
+            result = agent.invoke(input_data) # type: ignore
+        
+        # Safely extract dict-like data from various return types
+        model_dump_fn = getattr(result, "model_dump", None)
+        dict_fn = getattr(result, "dict", None)
+        if callable(model_dump_fn):
+            final = model_dump_fn()
+        elif callable(dict_fn):
+            final = dict_fn()
+        elif isinstance(result, dict):
+            final = result
+        else:
+            final = result
+            
+        return {"final_summary": final}
+    except Exception as e:
+        print(f"Translator Error: {e}")
+        return {"errors": [f"Translator Error: {str(e)}"]}
+
 
 def chat_node(state: AgentState):
     user_query = state["messages"][-1].content
+    
+    # 1. RAG Retrieval
     relevant_chunks = rag_engine.query_contract(user_query)
     context_text = "\n\n".join([doc.page_content for doc in relevant_chunks])
     
-    llm = get_model(model="deepseek-chat")
-    system_msg = f"Answer using context:\n{context_text}"
+    # 2. Contextual Summary (Prevent JSON Mimicry)
+    # We pull the high-level findings from the state but present them as text
+    analysis = state.get("analysis", {})
+    pros = ", ".join(analysis.get("pros", []))
+    cons = ", ".join(analysis.get("cons", []))
     
-    response = llm.invoke([{"role": "system", "content": system_msg}] + state["messages"])
+    # 3. Enhanced Professional Prompt
+    system_prompt = f"""
+    You are a professional Legal Career Coach. 
+    Use the following contract snippets and our risk analysis to answer the user's question.
+
+    RISK ANALYSIS SUMMARY:
+    - Pros found: {pros if pros else "None identified"}
+    - Risks found: {cons if cons else "None identified"}
+
+    CONTRACT SNIPPETS:
+    {context_text}
+
+    INSTRUCTIONS:
+    1. Respond in PLAIN ENGLISH. 
+    2. NEVER output JSON, code blocks, or raw data structures.
+    3. Use bullet points for clarity.
+    4. If the answer is not in the snippets, say you don't have enough information from the document.
+    """
+
+    # 4. Use the model factory (ensure temperature is higher for natural speech)
+    llm = get_model(temperature=0.7) 
+    
+    # 5. Build the message chain
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+    
+    response = llm.invoke(messages)
     return {"messages": [response]}
+
+
+# def chat_node(state: AgentState):
+#     user_query = state["messages"][-1].content
+#     relevant_chunks = rag_engine.query_contract(user_query)
+#     context_text = "\n\n".join([doc.page_content for doc in relevant_chunks])
+    
+#     llm = get_model(model="deepseek-chat")
+#     system_msg = f"Answer using context:\n{context_text}"
+    
+#     response = llm.invoke([{"role": "system", "content": system_msg}] + state["messages"])
+#     return {"messages": [response]}
+
 
 # --- CONSTRUCT THE GRAPH ---
 def create_legal_engine():
