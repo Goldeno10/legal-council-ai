@@ -1,216 +1,209 @@
 import uuid
-from typing import Annotated, List, TypedDict, Optional, Literal
-from langchain_core.messages import SystemMessage
+from typing import Annotated, List, Literal, TypedDict, Optional
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import InMemorySaver
-from langchain_core.messages import BaseMessage, HumanMessage
+from langgraph.prebuilt import ToolNode, tools_condition
+from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph.message import add_messages
 
-from src.agents.extractor import get_extraction_agent
+from src.agents.extractor import get_discovery_agent
 from src.agents.analyzer import get_analyzer_agent
 from src.agents.translator import get_translator_agent
 from src.agents.get_model import get_model
 from src.core.rag_pipeline import LegalRAG
 
-# Initialize the RAG engine
-rag_engine = LegalRAG()
 
+# ----------------------------------------------------------------------
+# State Definition
+# ----------------------------------------------------------------------
 class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     raw_text: str
-    extracted_data: Optional[dict]
+    discovery: Optional[dict]
     analysis: Optional[dict]
     final_summary: Optional[dict]
+    mode: Literal["analyze", "chat"]  # Controls entry path
+    is_legal: bool
     errors: List[str]
 
-# --- ROUTER LOGIC ---
-def should_continue(state: AgentState) -> Literal["continue", "end"]:
-    """
-    Determines if the graph should proceed or stop based on errors.
-    """
-    if state.get("errors") and len(state["errors"]) > 0:
-        return "end"
-    return "continue"
 
-# --- NODES ---
-def indexing_node(state: AgentState):
-    raw_text = state.get("raw_text", "").strip()
-    if not raw_text:
-        return {"errors": ["No text provided for indexing"]}
+# ----------------------------------------------------------------------
+# Global Resources
+# ----------------------------------------------------------------------
+rag_engine = LegalRAG()
+rag_tool = rag_engine.as_tool()  # Tool instantiated once
+
+
+# ----------------------------------------------------------------------
+# Nodes
+# ----------------------------------------------------------------------
+def validator_node(state: AgentState) -> dict:
+    """Initial validation: Check if the document is legal."""
+    llm = get_model(temperature=0)
+    prompt = f"""You are a legal gatekeeper. Analyze the following text snippet.
+    Is this a legal document (contract, NDA, lease, etc.)? 
+    Respond with exactly one word: 'YES' or 'NO'.
     
-    doc_id = str(uuid.uuid4()) 
-    # Use the [Chroma Documentation](https://docs.trychroma.com) approach for safety
-    rag_engine.index_document(raw_text, doc_id=doc_id)
-    return {"errors": []}
+    TEXT: {state['raw_text'][:2000]}"""
+    
+    response = llm.invoke(prompt)
+    is_legal = "YES" in response.content.upper()
+    
+    return {
+        "is_legal": is_legal, 
+        "errors": [] if is_legal else ["The uploaded file does not appear to be a legal document."]
+    }
 
-# def extractor_node(state: AgentState):
-#     # Guard against empty input before calling LLM
-#     if not state.get("raw_text"):
-#         return {"errors": ["No text provided for extraction"]}
-        
-#     agent = get_extraction_agent()
-#     try:
-#         result = agent.invoke({"contract_text": state["raw_text"][:12000]})
-#         return {"extracted_data": result}
-#     except Exception as e:
-#         return {"errors": [f"Extraction Error: {str(e)}"]}
-def extractor_node(state: AgentState):
-    agent = get_extraction_agent()
+
+def indexer_node(state: AgentState) -> dict:
+    """Background indexing for RAG (fire-and-forget)."""
+    if state.get("raw_text"):
+        rag_engine.index_document(state["raw_text"], doc_id=str(uuid.uuid4()))
+    return {}
+
+
+def discovery_node(state: AgentState) -> dict:
+    """Extract key elements and jargon from the document."""
+    agent = get_discovery_agent()
+    input_data = {"contract_text": state["raw_text"][:30000]}
+    
     try:
-        input_data = {"contract_text": state["raw_text"][:30000]}
-        
-        # Check if the agent is a function (Local mode) or Runnable (Cloud mode)
-        if callable(agent) and not hasattr(agent, "invoke"):
-            # It's our custom local_chain function
-            result = agent(input_data)
-        else:
-            # It's a standard LangChain Runnable
-            result = agent.invoke(input_data)
-            
-        # Convert Pydantic to dict for the state
-        return {"extracted_data": result.model_dump() if hasattr(result, "model_dump") else result.dict() if hasattr(result, "dict") else result}
-        
+        result = agent(input_data) if callable(agent) else agent.invoke(input_data)
+        return {"discovery": result.model_dump() if hasattr(result, "model_dump") else result}
     except Exception as e:
-        print(f"Node Error: {e}")
-        return {"errors": [f"Extraction Error: {str(e)}"]}
+        return {"errors": [f"Discovery error: {str(e)}"]}
 
 
-def analyzer_node(state: AgentState):
+def analyzer_node(state: AgentState) -> dict:
+    """Assess risks and provide strategic analysis."""
     agent = get_analyzer_agent()
-    result = agent.invoke({"extracted_json": state["extracted_data"]})
-    return {"analysis": result}
-
-# def translator_node(state: AgentState):
-#     agent = get_translator_agent()
-#     result = agent.invoke({"analysis_json": state["analysis"]})
-#     return {"final_summary": result}
-
-def translator_node(state: AgentState):
-    if state.get("errors"): return state
-    
-    agent = get_translator_agent()
-    input_data = {"analysis_json": state["analysis"]}
+    input_data = {"extracted_json": state["discovery"]}
     
     try:
-        # HANDLE BOTH FUNCTION AND RUNNABLE
-        if callable(agent) and not hasattr(agent, "invoke"):
-            result = agent(input_data)
-        else:
-            result = agent.invoke(input_data) # type: ignore
-        
-        # Safely extract dict-like data from various return types
-        model_dump_fn = getattr(result, "model_dump", None)
-        dict_fn = getattr(result, "dict", None)
-        if callable(model_dump_fn):
-            final = model_dump_fn()
-        elif callable(dict_fn):
-            final = dict_fn()
-        elif isinstance(result, dict):
-            final = result
-        else:
-            final = result
-            
-        return {"final_summary": final}
+        result = agent(input_data) if callable(agent) else agent.invoke(input_data)
+        return {"analysis": result.model_dump() if hasattr(result, "model_dump") else result}
     except Exception as e:
-        print(f"Translator Error: {e}")
-        return {"errors": [f"Translator Error: {str(e)}"]}
+        return {"errors": [f"Analysis error: {str(e)}"]}
 
 
-def chat_node(state: AgentState):
-    user_query = state["messages"][-1].content
+def translator_node(state: AgentState) -> dict:
+    """Synthesize discovery and analysis into a human-friendly summary."""
+    agent = get_translator_agent()
+    input_data = {
+        "analysis_json": {
+            "discovery": state["discovery"],
+            "risks": state["analysis"]
+        }
+    }
     
-    # 1. RAG Retrieval
-    relevant_chunks = rag_engine.query_contract(user_query)
-    context_text = "\n\n".join([doc.page_content for doc in relevant_chunks])
-    
-    # 2. Contextual Summary (Prevent JSON Mimicry)
-    # We pull the high-level findings from the state but present them as text
-    analysis = state.get("analysis", {})
-    pros = ", ".join(analysis.get("pros", []))
-    cons = ", ".join(analysis.get("cons", []))
-    
-    # 3. Enhanced Professional Prompt
-    system_prompt = f"""
-    You are a professional Legal Career Coach. 
-    Use the following contract snippets and our risk analysis to answer the user's question.
+    try:
+        result = agent(input_data) if callable(agent) else agent.invoke(input_data)
+        return {"final_summary": result.model_dump() if hasattr(result, "model_dump") else result}
+    except Exception as e:
+        return {"errors": [f"Translation error: {str(e)}"]}
 
-    RISK ANALYSIS SUMMARY:
-    - Pros found: {pros if pros else "None identified"}
-    - Risks found: {cons if cons else "None identified"}
 
-    CONTRACT SNIPPETS:
-    {context_text}
+def chat_agent(state: AgentState) -> dict:
+    """Conversational Legal Coach with optional contract retrieval tool."""
+    llm = get_model(temperature=0.75, format=None)
+    llm_with_tools = llm.bind_tools([rag_tool])
 
-    INSTRUCTIONS:
-    1. Respond in PLAIN ENGLISH. 
-    2. NEVER output JSON, code blocks, or raw data structures.
-    3. Use bullet points for clarity.
-    4. If the answer is not in the snippets, say you don't have enough information from the document.
-    """
+    summary = state.get("final_summary", {})
+    doc_type = summary.get("doc_type", "the agreement")
+    verdict = summary.get("verdict", "N/A")
 
-    # 4. Use the model factory (ensure temperature is higher for natural speech)
-    llm = get_model(temperature=0.7) 
-    
-    # 5. Build the message chain
-    messages = [SystemMessage(content=system_prompt)] + state["messages"]
-    
-    response = llm.invoke(messages)
+    system_content = f"""You are a supportive Legal Career Coach.
+
+Background (reference only, do NOT repeat):
+- Document: {doc_type}
+- Recommendation: {verdict}
+
+You have access to a tool that searches the actual contract text.
+Use it when the question is about specific clauses, definitions, obligations, or wording in THIS document.
+Do NOT use it for general legal knowledge or negotiation tactics unless they directly relate to the contract.
+
+Answer naturally, warmly, in plain English. Be encouraging and actionable.
+NEVER output XML, tags, or raw function calls — the system handles tool calls automatically."""
+
+    messages = [SystemMessage(content=system_content)] + state["messages"]
+
+    response = llm_with_tools.invoke(messages)
     return {"messages": [response]}
 
 
-# def chat_node(state: AgentState):
-#     user_query = state["messages"][-1].content
-#     relevant_chunks = rag_engine.query_contract(user_query)
-#     context_text = "\n\n".join([doc.page_content for doc in relevant_chunks])
-    
-#     llm = get_model(model="deepseek-chat")
-#     system_msg = f"Answer using context:\n{context_text}"
-    
-#     response = llm.invoke([{"role": "system", "content": system_msg}] + state["messages"])
-#     return {"messages": [response]}
+# ----------------------------------------------------------------------
+# Routers
+# ----------------------------------------------------------------------
+def route_after_validation(state: AgentState) -> Literal["discovery", "end"]:
+    """Continue analysis only if validated as legal."""
+    if state.get("is_legal") and not state.get("errors"):
+        return "discovery"
+    return "end"
 
 
-# --- CONSTRUCT THE GRAPH ---
+def route_entry(state: AgentState) -> Literal["validator", "chat_agent"]:
+    """Decide starting point based on mode, with guard for chat."""
+    mode = state.get("mode", "analyze")
+
+    if mode == "analyze":
+        return "validator"
+
+    if mode == "chat":
+        # Guard: chat requires successful prior analysis
+        if state.get("final_summary") and not state.get("errors"):
+            return "chat_agent"
+        # Fallback: run analysis if chat requested but state invalid
+        return "validator"
+
+    # Default to analysis
+    return "validator"
+
+
+# ----------------------------------------------------------------------
+# Graph Construction
+# ----------------------------------------------------------------------
 def create_legal_engine():
     workflow = StateGraph(AgentState)
 
-    workflow.add_node("indexer", indexing_node)
-    workflow.add_node("extractor", extractor_node)
+    # Nodes
+    workflow.add_node("validator", validator_node)
+    workflow.add_node("indexer", indexer_node)
+    workflow.add_node("discovery", discovery_node)
     workflow.add_node("analyzer", analyzer_node)
     workflow.add_node("translator", translator_node)
-    workflow.add_node("chat", chat_node)
+    workflow.add_node("chat_agent", chat_agent)
+    workflow.add_node("tools", ToolNode(tools=[rag_tool]))
 
-    # UPDATED FLOW: Use conditional edges to check for errors after every step
-    workflow.set_entry_point("indexer")
-    
+    # Entry router
+    workflow.add_node("router", lambda state: {"mode": state.get("mode")})
+    workflow.set_entry_point("router")
+
+    # Route to appropriate start
     workflow.add_conditional_edges(
-        "indexer",
-        should_continue,
-        {"continue": "extractor", "end": END}
+        "router",
+        route_entry,
+        {"validator": "validator", "chat_agent": "chat_agent"},
     )
-    
+
+    # Analysis path (multi-node)
     workflow.add_conditional_edges(
-        "extractor",
-        should_continue,
-        {"continue": "analyzer", "end": END}
+        "validator",
+        route_after_validation,
+        {"discovery": "discovery", "end": END},
     )
-    
-    workflow.add_conditional_edges(
-        "analyzer",
-        should_continue,
-        {"continue": "translator", "end": END}
-    )
-    
+    workflow.add_edge("validator", "indexer")  # Index in parallel regardless
+    workflow.add_edge("discovery", "analyzer")
+    workflow.add_edge("analyzer", "translator")
     workflow.add_edge("translator", END)
-    workflow.add_edge("chat", END)
+    workflow.add_edge("indexer", END)  # Indexer ends independently
 
-    memory = InMemorySaver()
-    return workflow.compile(checkpointer=memory)
+    # Chat path → ReAct loop
+    workflow.add_conditional_edges(
+        "chat_agent",
+        tools_condition,
+        {"tools": "tools", END: END},
+    )
+    workflow.add_edge("tools", "chat_agent")
 
-if __name__ == "__main__":
-    engine = create_legal_engine()
-    # This generates a text string in Mermaid format
-    print("\n--- COPY THE CODE BELOW ---")
-    print(engine.get_graph().draw_mermaid())
-    print("--- END OF CODE ---\n")
+    return workflow.compile(checkpointer=InMemorySaver())

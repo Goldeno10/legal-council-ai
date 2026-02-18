@@ -1,72 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LegalCouncil AI | Test Bench</title>
+    <title>LegalCouncil AI | Human-Centric Test Bench</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .dot-pulse {
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.3;
-            }
-        }
+        .dot-pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
     </style>
 </head>
-
 <body class="bg-slate-50 font-sans text-slate-900">
     <div class="max-w-4xl mx-auto py-12 px-4">
         <header class="mb-12 border-b pb-6">
-            <h1 class="text-3xl font-bold text-slate-800">LegalCouncil <span class="text-blue-600">AI</span></h1>
-            <p class="text-slate-500">Staff-level Agentic Document Intelligence Test Bench</p>
+            <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight">LegalCouncil <span class="text-blue-600">AI</span></h1>
+            <p class="text-slate-500 text-lg">Cognitive Document Intelligence & Career Coaching</p>
         </header>
 
         <!-- Section 1: Upload & Analysis -->
-        <section class="bg-white p-8 rounded-xl shadow-sm border mb-8">
-            <h2 class="text-xl font-semibold mb-4">1. Document Ingestion</h2>
-            <div class="flex items-center gap-4">
-                <input type="file" id="legalFile"
-                    class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                <button onclick="startAnalysis()" id="analyzeBtn"
-                    class="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition">Analyze</button>
+        <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 mb-8 transition-all">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                Document Ingestion
+            </h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <input type="file" id="legalFile" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer outline-none"/>
+                <button onclick="startAnalysis()" id="analyzeBtn" class="w-full sm:w-auto bg-blue-600 text-white px-8 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200 active:scale-95">Analyze Document</button>
             </div>
 
-            <!-- Progress Tracker -->
-            <div id="progress" class="mt-6 space-y-3 hidden">
-                <div id="step-extractor" class="flex items-center gap-3 text-slate-400">
-                    <div class="w-2 h-2 rounded-full bg-current"></div> Parsing & Extracting...
-                </div>
-                <div id="step-analyzer" class="flex items-center gap-3 text-slate-400">
-                    <div class="w-2 h-2 rounded-full bg-current"></div> Risk Assessment...
-                </div>
-                <div id="step-translator" class="flex items-center gap-3 text-slate-400">
-                    <div class="w-2 h-2 rounded-full bg-current"></div> Simplifying Content...
-                </div>
+            <!-- Progress Tracker: Matches new Engine Nodes -->
+            <div id="progress" class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 hidden">
+                <div id="step-validator" class="flex items-center gap-3 text-slate-400 border p-3 rounded-xl transition-colors"><div class="w-3 h-3 rounded-full bg-current"></div> <span>Gatekeeper: Validating...</span></div>
+                <div id="step-discovery" class="flex items-center gap-3 text-slate-400 border p-3 rounded-xl transition-colors"><div class="w-3 h-3 rounded-full bg-current"></div> <span>Counsel: Discovering Terms...</span></div>
+                <div id="step-analyzer" class="flex items-center gap-3 text-slate-400 border p-3 rounded-xl transition-colors"><div class="w-3 h-3 rounded-full bg-current"></div> <span>Strategy: Risk Analysis...</span></div>
+                <div id="step-translator" class="flex items-center gap-3 text-slate-400 border p-3 rounded-xl transition-colors"><div class="w-3 h-3 rounded-full bg-current"></div> <span>Coach: Final Briefing...</span></div>
             </div>
         </section>
 
         <!-- Section 2: Results & Chat -->
-        <section id="chatSection" class="bg-white p-8 rounded-xl shadow-sm border hidden">
-            <h2 class="text-xl font-semibold mb-4">2. Interactive Legal Counsel</h2>
-            <div id="chatBox" class="h-64 overflow-y-auto border rounded-lg p-4 bg-slate-50 mb-4 space-y-4 text-sm">
-                <!-- Messages appear here -->
+        <section id="chatSection" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hidden">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                Human-to-AI Counsel
+            </h2>
+            
+            <!-- Result Rendering Area -->
+            <div id="finalReport" class="mb-8 space-y-6"></div>
+
+            <!-- Chat Interface -->
+            <div id="chatBox" class="h-[450px] overflow-y-auto border rounded-2xl p-6 bg-slate-50 mb-6 space-y-6 text-sm scroll-smooth">
+                <!-- Coaching messages start here -->
+                <div class="flex justify-start">
+                    <div class="bg-white border text-slate-600 px-5 py-3 rounded-2xl rounded-tl-none shadow-sm italic">
+                        The analysis is complete. How can I help you navigate this agreement?
+                    </div>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <input type="text" id="chatInput" placeholder="Ask about a specific clause..."
-                    class="flex-1 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="sendChat()"
-                    class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900">Ask</button>
+            
+            <div class="relative group">
+                <input type="text" id="chatInput" onkeypress="if(event.key==='Enter') sendChat()" placeholder="Ask your coach a question..." class="w-full border border-slate-200 rounded-2xl px-6 py-4 pr-16 focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all shadow-sm">
+                <button onclick="sendChat()" class="absolute right-3 top-2.5 bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-900 transition-colors">
+                    <svg xmlns="http://www.w3.org" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                </button>
             </div>
         </section>
     </div>
@@ -76,18 +72,18 @@
 
         async function startAnalysis() {
             const fileInput = document.getElementById('legalFile');
-            if (!fileInput.files[0]) return alert("Upload a PDF first");
+            if (fileInput.files.length === 0) return alert("Please upload a contract first.");
 
             const btn = document.getElementById('analyzeBtn');
             const progress = document.getElementById('progress');
-
+            
             btn.disabled = true;
+            btn.innerText = "Processing...";
             progress.classList.remove('hidden');
 
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
-            // Using fetch with Response.body for SSE
             const response = await fetch('/analyze', { method: 'POST', body: formData });
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -95,24 +91,30 @@
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
-
+                
                 const chunk = decoder.decode(value);
                 const lines = chunk.split('\n');
-
+                
                 lines.forEach(line => {
                     if (line.startsWith('data: ')) {
                         const data = JSON.parse(line.replace('data: ', ''));
+                        
+                        // Handle Rejection
+                        if (data.node === 'validator' && data.update && data.update.is_legal === false) {
+                            alert("⛔ Invalid Document: This doesn't look like a legal agreement.");
+                            location.reload();
+                        }
 
-                        // 1. Update Progress Bar
+                        // Update Node Progress UI
                         if (data.node) {
                             const el = document.getElementById(`step-${data.node}`);
                             if (el) {
-                                el.classList.remove('text-slate-400');
-                                el.classList.add('text-green-600', 'font-medium');
+                                el.classList.remove('text-slate-400', 'border-slate-100');
+                                el.classList.add('text-green-600', 'font-bold', 'border-green-200', 'bg-green-50');
                             }
                         }
 
-                        // 2. Catch the Final Translation and Render to UI
+                        // Render Final Summary when ready
                         if (data.node === 'translator' && data.update.final_summary) {
                             renderFinalReport(data.update.final_summary);
                         }
@@ -120,149 +122,95 @@
                         if (data.status === 'done') {
                             currentThreadId = data.thread_id;
                             document.getElementById('chatSection').classList.remove('hidden');
+                            btn.innerText = "Analysis Complete";
                         }
                     }
                 });
             }
         }
 
-
-        // Helper function to inject the AI response into the DOM
         function renderFinalReport(summary) {
-            const chatBox = document.getElementById('chatBox');
+            const reportDiv = document.getElementById('finalReport');
+            
+            const takeawaysHtml = summary.key_takeaways.map(item => `
+                <div class="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                    <h4 class="font-bold text-blue-700 text-lg mb-1">${item.title}</h4>
+                    <p class="text-slate-600 leading-relaxed">${item.simple_explanation}</p>
+                    <div class="mt-4 flex items-start gap-2 text-sm text-orange-700 bg-orange-50 p-3 rounded-xl">
+                        <span class="font-bold">Advice:</span>
+                        <p class="italic">${item.action_item}</p>
+                    </div>
+                </div>
+            `).join('');
 
-            let takeawaysHtml = summary.key_takeaways.map(item => `
-        <div class="mb-3 p-3 bg-white border rounded shadow-sm">
-            <h4 class="font-bold text-blue-700">${item.title}</h4>
-            <p class="text-slate-700 mt-1">${item.simple_explanation}</p>
-            <p class="text-xs text-orange-600 mt-2 italic"><strong>Action:</strong> ${item.action_item}</p>
-        </div>
-    `).join('');
-
-            chatBox.innerHTML = `
-        <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 mb-6">
-            <h3 class="font-bold text-lg mb-2">Executive Summary (TL;DR)</h3>
-            <p>${summary.tldr}</p>
-            <div class="mt-2 text-sm font-semibold text-blue-800">Tone: ${summary.tone_check}</div>
-        </div>
-        <div class="space-y-4">
-            <h3 class="font-bold text-lg">Key Takeaways</h3>
-            ${takeawaysHtml}
-        </div>
-    `;
-            chatBox.scrollTop = 0;
+            reportDiv.innerHTML = `
+                <div class="bg-blue-600 text-white p-8 rounded-3xl mb-8 shadow-xl shadow-blue-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="font-bold text-2xl">The Briefing</h3>
+                        <span class="bg-blue-400 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">${summary.tone_check}</span>
+                    </div>
+                    <p class="text-lg text-blue-50 leading-relaxed font-medium">"${summary.tldr}"</p>
+                    <div class="mt-6 p-4 bg-blue-700/50 rounded-2xl border border-blue-400/30 text-sm">
+                        <strong class="text-blue-200 block mb-1 uppercase tracking-tighter text-xs">💡 Pro Coach's Tip</strong>
+                        ${summary.coaches_tip}
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${takeawaysHtml}
+                </div>
+            `;
         }
-        // async function sendChat() {
-        //     const input = document.getElementById('chatInput');
-        //     const chatBox = document.getElementById('chatBox');
-        //     const query = input.value;
-        //     if (!query || !currentThreadId) return;
 
-        //     chatBox.innerHTML += `<div class="text-right"><b>You:</b> ${query}</div>`;
-        //     input.value = '';
-
-        //     const aiMsgDiv = document.createElement('div');
-        //     aiMsgDiv.innerHTML = `<b>AI:</b> <span class="ai-content"></span>`;
-        //     chatBox.appendChild(aiMsgDiv);
-        //     const contentSpan = aiMsgDiv.querySelector('.ai-content');
-
-        //     const response = await fetch(`/chat/${currentThreadId}?query=${encodeURIComponent(query)}`, { method: 'POST' });
-        //     const reader = response.body.getReader();
-        //     const decoder = new TextDecoder();
-
-        //     while (true) {
-        //         const { value, done } = await reader.read();
-        //         if (done) break;
-        //         const chunk = decoder.decode(value);
-        //         const lines = chunk.split('\n');
-        //         lines.forEach(line => {
-        //             if (line.startsWith('data: ')) {
-        //                 const data = JSON.parse(line.replace('data: ', ''));
-        //                 if (data.token) contentSpan.innerText += data.token;
-        //             }
-        //         });
-        //         chatBox.scrollTop = chatBox.scrollHeight;
-        //     }
-        // }
         async function sendChat() {
             const input = document.getElementById('chatInput');
             const chatBox = document.getElementById('chatBox');
             const query = input.value;
             if (!query || !currentThreadId) return;
 
-            // 1. Append User Message
+            // User Message
             chatBox.innerHTML += `
-        <div class="flex justify-end mb-4">
-            <div class="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-tr-none max-w-[80%] shadow-sm">
-                ${query}
-            </div>
-        </div>`;
+                <div class="flex justify-end">
+                    <div class="bg-blue-600 text-white px-5 py-3 rounded-2xl rounded-tr-none shadow-md max-w-[85%]">
+                        ${query}
+                    </div>
+                </div>`;
             input.value = '';
 
-            // 2. Prepare AI Message Container
+            // AI Response Container
             const aiMsgDiv = document.createElement('div');
-            aiMsgDiv.className = "flex justify-start mb-4";
+            aiMsgDiv.className = "flex justify-start animate-in fade-in slide-in-from-left-2";
             aiMsgDiv.innerHTML = `
-        <div class="bg-white border text-slate-800 px-4 py-2 rounded-2xl rounded-tl-none max-w-[90%] shadow-sm">
-            <span class="font-bold text-xs text-blue-600 block mb-1">AI COUNSEL</span>
-            <div class="ai-content whitespace-pre-wrap leading-relaxed"></div>
-        </div>`;
+                <div class="bg-white border border-slate-200 text-slate-800 px-6 py-4 rounded-2xl rounded-tl-none shadow-sm max-w-[90%] leading-relaxed">
+                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-2">Legal Counsel AI</span>
+                    <div class="ai-content whitespace-pre-wrap"></div>
+                </div>`;
             chatBox.appendChild(aiMsgDiv);
             const contentSpan = aiMsgDiv.querySelector('.ai-content');
 
-            // 3. Consume Stream
             const response = await fetch(`/chat/${currentThreadId}?query=${encodeURIComponent(query)}`, { method: 'POST' });
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-
-            let fullContent = "";
-
+            
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
-
+                
                 const chunk = decoder.decode(value);
                 const lines = chunk.split('\n');
-
                 lines.forEach(line => {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.replace('data: ', ''));
+                            // If it's a token, append text. If it's accidentally JSON, we just show the content.
                             if (data.token) {
-                                fullContent += data.token;
-
-                                // STAFF ENGINEER MOVE: 
-                                // If the local AI is dumping raw JSON strings, let's clean it up 
-                                // for the user so it doesn't look like code.
-                                let displayContent = fullContent;
-                                if (fullContent.trim().startsWith('{')) {
-                                    // Only update once we have enough content to avoid flickers
-                                    contentSpan.innerHTML = `<code class="text-xs text-slate-500">Processing detailed data...</code>`;
-                                } else {
-                                    contentSpan.innerText = fullContent;
-                                }
+                                contentSpan.innerText += data.token;
                             }
-                        } catch (e) {
-                            console.error("Stream parse error", e);
-                        }
+                        } catch (e) { console.error("Stream error", e); }
                     }
                 });
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
-
-            // FINAL PASS: If it was JSON, let's make it look nice after streaming finishes
-            if (fullContent.trim().startsWith('{')) {
-                try {
-                    // If the model output multiple JSON objects, we split and format them
-                    const formatted = fullContent.replace(/\}\{/g, '}\n\n{');
-                    contentSpan.innerHTML = `<div class="bg-slate-900 text-green-400 p-3 rounded-lg overflow-x-auto font-mono text-xs">${formatted}</div>`;
-                } catch (e) {
-                    contentSpan.innerText = fullContent;
-                }
-            }
         }
-
     </script>
 </body>
-
 </html>

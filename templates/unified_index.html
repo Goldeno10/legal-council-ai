@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LegalCoach · AI contract advisor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+  <style>
+    /* soft, professional chat styling */
+    .coach-message p { margin: 0 0 0.4rem 0; }
+    .coach-message p:last-child { margin-bottom: 0; }
+    .coach-message ul, .coach-message ol { margin: 0.25rem 0 0.5rem 1.5rem; }
+    .coach-message code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.9em; }
+    .proportional-text { font-size: clamp(0.9rem, 2.5vw, 1rem); line-height: 1.5; }
+    .verdict-pill { @apply inline-flex items-center px-5 py-2.5 rounded-full font-semibold text-base shadow-md; }
+    /* cleaner file zone */
+    .upload-area { transition: background 0.2s, border-color 0.2s; }
+    .upload-area:hover { border-color: #2563eb; background-color: #f8fafc; }
+    #chatMessages { scroll-behavior: smooth; }
+    /* smaller prose for mobile readability */
+    .prose { font-size: 0.95rem; }
+    .prose h2 { font-size: 1.5rem; margin-top: 1.2rem; }
+    .prose h3 { font-size: 1.2rem; }
+  </style>
+</head>
+<body class="bg-slate-50/60 antialiased font-sans">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-5 py-6 md:py-10">
+
+  <!-- header – sleeker -->
+  <header class="flex items-center justify-between mb-6">
+    <div class="flex items-end gap-1">
+      <h1 class="text-3xl md:text-4xl font-light tracking-tight">
+        legal<span class="font-bold text-indigo-700">coach</span>
+      </h1>
+      <span class="text-xs text-slate-400 mb-1 ml-1 hidden sm:inline">⚖️ AI counsel</span>
+    </div>
+    <div id="status" class="text-xs text-slate-500 bg-white/80 px-3 py-1.5 rounded-full border hidden">
+      ● ready
+    </div>
+  </header>
+
+  <!-- upload – smaller, integrated, less "in-your-face" -->
+  <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-slate-200/80 p-5 mb-8">
+    <div class="flex flex-col sm:flex-row items-center gap-4">
+      <label class="flex-1 w-full cursor-pointer group">
+        <div class="upload-area flex items-center justify-between gap-3 px-4 py-3 border border-slate-200 bg-slate-50/30 rounded-xl text-slate-600">
+          <span class="text-sm font-medium flex items-center gap-2 truncate">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            <span class="file-label">Upload contract (PDF)</span>
+          </span>
+          <span class="text-xs text-slate-400 hidden sm:inline">max 10 MB</span>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf" class="hidden" />
+      </label>
+
+      <button id="analyzeBtn" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-7 py-3 rounded-xl transition shadow-sm active:scale-[0.98] disabled:opacity-50 w-full sm:w-auto">
+        Review
+      </button>
+    </div>
+
+    <!-- minimal progress area -->
+    <div id="loadingArea" class="hidden mt-5 space-y-2">
+      <div class="flex items-center gap-3 text-indigo-600 text-sm">
+        <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <span>analysing document…</span>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-1.5">
+        <div id="progressBar" class="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN PANEL: results + chat combined (merge analysis with chat) -->
+  <div id="results" class="hidden space-y-6">
+
+    <!-- hero verdict card – minimal & clean -->
+    <div id="hero" class="bg-white rounded-xl border border-slate-200 p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm"></div>
+
+    <!-- analysis content (markdown) with smaller proportional text -->
+    <div id="content" class="prose prose-slate prose-headings:font-medium prose-p:proportional-text max-w-none bg-white rounded-xl border border-slate-200 p-5 md:p-6 shadow-sm"></div>
+
+    <!-- CHAT section – fully integrated as "legal coach" conversation -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="px-5 pt-5 pb-1 border-b border-slate-100 flex items-center gap-2">
+        <span class="text-indigo-700 text-xl">💬</span>
+        <h3 class="font-medium text-slate-800">Ask your legal coach</h3>
+        <span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full ml-auto">based on document</span>
+      </div>
+
+      <!-- messages container with markdown support -->
+      <div id="chatMessages" class="h-80 md:h-96 overflow-y-auto px-5 py-4 space-y-4 bg-slate-50/30"></div>
+
+      <!-- input area – refined -->
+      <div class="p-4 border-t bg-white">
+        <div class="relative flex items-center">
+          <input id="chatInput" type="text" placeholder="e.g. “What are the termination risks?”"
+            class="w-full pl-5 pr-14 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none transition text-sm"
+            onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }">
+          <button onclick="sendMessage()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2.5 rounded-lg hover:bg-indigo-700 transition shadow-sm flex items-center justify-center w-10 h-10">
+            <svg class="w-5 h-5 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          </button>
+        </div>
+        <p class="text-xs text-slate-400 mt-2 ml-2">coach answers based on your contract &amp; legal principles</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentThreadId = null;
+  let progressInterval = null;
+
+  // file label update
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const label = document.querySelector('.file-label');
+    if (file) {
+      label.textContent = file.name.length > 30 ? file.name.substring(0,27)+'…' : file.name;
+    } else {
+      label.textContent = 'Upload contract (PDF)';
+    }
+  });
+
+  async function startAnalysis() {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) {
+      alert("Please select a PDF contract.");
+      return;
+    }
+
+    // reset UI
+    document.getElementById('loadingArea').classList.remove('hidden');
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('status').classList.remove('hidden');
+    document.getElementById('status').innerHTML = '● analysing';
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('chatMessages').innerHTML = '';   // clear previous chat
+    currentThreadId = null;
+
+    let progress = 0;
+    document.getElementById('progressBar').style.width = '0%';
+    clearInterval(progressInterval);
+    progressInterval = setInterval(() => {
+      progress = Math.min(progress + 2.5, 95);
+      document.getElementById('progressBar').style.width = progress + '%';
+    }, 900);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // using relative endpoint (assumes backend)
+      const res = await fetch('/analyze', { method: 'POST', body: formData });
+      if (!res.body) throw new Error("No stream");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+
+          try {
+            const jsonStr = trimmed.slice(6).trim();
+            if (!jsonStr) continue;
+            const payload = JSON.parse(jsonStr);
+
+            if (payload.progress !== undefined) {
+              document.getElementById('progressBar').style.width = `${Math.min(payload.progress, 100)}%`;
+            }
+
+            if (payload.node === 'brain' && payload.update?.final_summary) {
+              renderResult(payload.update.final_summary);
+            }
+
+            if (payload.status === 'done' && payload.thread_id) {
+              currentThreadId = payload.thread_id;
+              hideLoading();
+            }
+
+            if (payload.error) {
+              alert(payload.error);
+              hideLoading();
+              return;
+            }
+          } catch (e) {
+            console.warn("parse issue", e);
+          }
+        }
+      }
+      hideLoading();
+    } catch (err) {
+      console.error(err);
+      alert("Analysis failed – " + err.message);
+      hideLoading();
+    }
+  }
+
+  function hideLoading() {
+    clearInterval(progressInterval);
+    document.getElementById('loadingArea').classList.add('hidden');
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('status').innerHTML = '● ready';
+    document.getElementById('progressBar').style.width = '100%';
+    setTimeout(() => document.getElementById('progressBar').style.width = '0%', 400);
+  }
+
+  function renderResult(data) {
+    if (!data?.is_legal) {
+      document.getElementById('content').innerHTML = `<div class="text-amber-700 bg-amber-50 p-6 rounded-xl border">⚠️ Not recognized as a legal document. Still, you can ask the coach.</div>`;
+      document.getElementById('results').classList.remove('hidden');
+      return;
+    }
+
+    const verdict = data.verdict || 'Review';
+    const colors = {
+      'Sign': 'bg-emerald-600 text-white',
+      'Negotiate': 'bg-amber-600 text-white',
+      'Walk': 'bg-rose-600 text-white',
+      'Review': 'bg-indigo-600 text-white'
+    };
+    const verdictClass = colors[verdict] || 'bg-slate-600 text-white';
+
+    document.getElementById('hero').innerHTML = `
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">${data.doc_type || 'Contract'}</span>
+        <span class="text-sm text-slate-500">review complete</span>
+      </div>
+      <div class="flex items-center gap-5">
+        <span class="text-sm font-medium text-slate-500">recommendation</span>
+        <span class="verdict-pill ${verdictClass}">${verdict}</span>
+      </div>
+    `;
+
+    // combine markdown sections, with smaller proportional text (handled by prose)
+    const briefing = marked.parse(data.briefing_md || '');
+    const glossary = marked.parse(data.glossary_md || '');
+    const risks = marked.parse(data.risks_md || '');
+    const coachTip = marked.parse(data.coaches_tip_md || '');
+
+    const htmlContent = `
+      <div class="space-y-6">
+        <div>${briefing}</div>
+        <div class="grid md:grid-cols-2 gap-5 not-prose">
+          <div class="bg-slate-50 p-5 rounded-xl border">${glossary}</div>
+          <div class="bg-slate-50 p-5 rounded-xl border">${risks}</div>
+        </div>
+        <div class="bg-indigo-50/70 border-l-4 border-indigo-400 p-5 rounded-lg">${coachTip}</div>
+      </div>
+    `;
+    document.getElementById('content').innerHTML = htmlContent;
+    document.getElementById('results').classList.remove('hidden');
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const query = input.value.trim();
+    if (!query) return;
+
+    if (!currentThreadId) {
+      alert("Please analyse a contract first, or ask a general legal question (coach may answer generically).");
+      // allow fallback: we try to send anyway with null? for demo we block.
+      return;
+    }
+
+    const messagesDiv = document.getElementById('chatMessages');
+
+    // user bubble
+    messagesDiv.innerHTML += `
+      <div class="flex justify-end">
+        <div class="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-none max-w-[80%] text-sm shadow-sm">${escapeHtml(query)}</div>
+      </div>`;
+    input.value = '';
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // coach placeholder (supports markdown)
+    const coachBubble = document.createElement('div');
+    coachBubble.className = "flex justify-start";
+    coachBubble.innerHTML = `
+      <div class="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-none max-w-[90%] shadow-sm coach-message">
+        <div class="text-xs font-semibold text-indigo-600 mb-1 tracking-wide">⚖️ Legal coach</div>
+        <div class="ai-response proportional-text text-slate-700"></div>
+      </div>`;
+    messagesDiv.appendChild(coachBubble);
+    const responseDiv = coachBubble.querySelector('.ai-response');
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    try {
+      const res = await fetch(`/chat/${currentThreadId}?query=${encodeURIComponent(query)}`, { method: 'POST' });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      let rawMarkdown = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              if (parsed.token) {
+                rawMarkdown += parsed.token;
+                responseDiv.innerHTML = marked.parse(rawMarkdown);  // live markdown render
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+              }
+            } catch { }
+          }
+        }
+      }
+    } catch (err) {
+      responseDiv.innerHTML = '<span class="text-rose-600">⚠️ connection error – please try again</span>';
+      console.error(err);
+    }
+  }
+
+  // tiny escape helper for user message (avoid html injection)
+  function escapeHtml(unsafe) {
+    return unsafe.replace(/[&<>"]/g, function(m) {
+      if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; if(m === '"') return '&quot;';
+      return m;
+    });
+  }
+
+  document.getElementById('analyzeBtn').onclick = startAnalysis;
+</script>
+</body>
+</html>

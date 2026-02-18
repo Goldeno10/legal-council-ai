@@ -1,4 +1,4 @@
-from src.core.engine import create_legal_engine
+from src.core.unified_engine import create_legal_engine
 
 def save_graph_image(output_path="graph.png"):
     engine = create_legal_engine()

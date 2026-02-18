@@ -1,6 +1,7 @@
 import os
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_core.tools import tool
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
@@ -48,3 +49,31 @@ class LegalRAG:
         # Use Similarity Search to find relevant paragraphs
         docs = self.vector_db.similarity_search(query, k=3)
         return docs
+
+    def as_tool(self):
+        @tool
+        def search_contract(query: str) -> str:
+            """
+            Search the uploaded legal contract for relevant clauses or information.
+            Use this when the user asks about specific wording, sections, obligations,
+            definitions, risks in the document, or when you need exact text to answer accurately.
+            Do NOT use for general legal advice or negotiation strategy unless it directly references the document.
+            """
+            if not self.vector_db:
+                return "No document has been indexed yet."
+
+            docs = self.vector_db.similarity_search(query, k=4)
+
+            if not docs:
+                return "No relevant sections found in the document."
+
+            formatted = []
+            for doc in docs:
+                formatted.append(
+                    f"Excerpt (from position ~{doc.metadata.get('start_index', 'unknown')}):\n"
+                    f"{doc.page_content}\n"
+                )
+
+            return "\n\n".join(formatted)
+
+        return search_contract
