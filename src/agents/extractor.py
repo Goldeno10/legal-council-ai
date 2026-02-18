@@ -2,119 +2,78 @@ import os
 import re
 import json
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from .get_model import get_model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.messages import BaseMessage
 
-# 1. Define the Schema
-class LegalExtraction(BaseModel):
-    parties: List[str] = Field(default_factory=list, description="Names of the entities involved")
-    termination_period: Optional[str] = Field(default=None, description="Notice period for termination")
-    non_compete_clause: Optional[str] = Field(default=None, description="Summary of non-compete restrictions")
-    salary_and_benefits: Optional[str] = Field(default=None, description="Summary of financial compensation")
+
+class LegalDiscovery(BaseModel):
+    is_legal_document: bool = Field(description="Is this actually a legal document?")
+    document_type: str = Field(description="The specific type of agreement identified")
+    parties: List[str] = Field(default_factory=list, description="Entities involved")
+    complex_terms: List[Dict[str, str]] = Field(
+        description="List of jargon terms (e.g., 'Indemnification') and their simple layman definitions"
+    )
+    key_obligations: List[str] = Field(description="What the user is actually required to do")
+    hidden_risks: List[str] = Field(description="Subtle traps found in the fine print")
+
 
 def clean_json_text(text: str) -> str:
     """
-    Staff-level utility to strip Markdown markers and conversational filler.
-    Ensures the string passed to the parser is strictly the JSON block.
+    Finds the outermost { } block. 
+    Prevents crashes from 'Here is the JSON:' conversational filler.
     """
-    # Remove markdown code blocks if present
-    text = re.sub(r"```json\s*|\s*```", "", text)
-    # Find the first '{' and last '}' to isolate the JSON object
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    return match.group(0) if match else text
+    try:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        return match.group(0) if match else text
+    except:
+        return text
 
-def get_extraction_agent():
-    parser = PydanticOutputParser(pydantic_object=LegalExtraction)
-    llm = get_model(temperature=0)
+def get_discovery_agent():
+    """
+    Discovery agent that replaces the rigid extractor with a cognitive one.
+    """
+    parser = PydanticOutputParser(pydantic_object=LegalDiscovery)
+    llm = get_model(temperature=0) # Low temp for high accuracy in discovery
+
+    system_instruction = (
+        "You are a Senior Legal Counsel. Your first task is to determine if the text is a legal document. "
+        "If it is, perform a deep discovery of its substance. "
+        "Identify complex 'legalese' terms and provide simple translations. "
+        "Expose the hidden risks that a layman might miss. "
+        "You MUST return ONLY a JSON object."
+    )
 
     if os.getenv("USE_LOCAL_AI") == "true":
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a legal data extractor. You must return ONLY JSON. No conversation or markdown."),
-            ("user", "Extract data from this text: {contract_text}\n\nReturn JSON matching this schema: {format_instructions}")
+            ("system", system_instruction),
+            ("user", "Analyze this text: {contract_text}\n\nFormat: {format_instructions}")
         ]).partial(format_instructions=parser.get_format_instructions())
 
-        # Logic for Local: LLM -> Clean Text -> Parse into Pydantic
         def local_chain(input_data):
-            # 1. Generate Raw Response
             raw_response = (prompt | llm).invoke(input_data)
             content = raw_response.content if isinstance(raw_response, BaseMessage) else str(raw_response)
-            
-            # 2. Clean the string (Crucial for Llama/DeepSeek local)
             sanitized_json = clean_json_text(content) # type: ignore
-            
-            # 3. Parse into Pydantic model
             try:
                 return parser.parse(sanitized_json)
             except Exception as e:
-                # Senior fallback: return partially valid model instead of crashing the stream
-                return LegalExtraction(parties=["Parsing Error"], termination_period=f"Error: {str(e)}")
-
+                # Human-like fallback for errors
+                return LegalDiscovery(
+                    is_legal_document=False,
+                    document_type="Unknown",
+                    parties=[],
+                    complex_terms=[{"term": "Error", "definition": "Could not parse JSON"}],
+                    key_obligations=[],
+                    hidden_risks=[str(e)]
+                )
         return local_chain
 
     else:
-        # Cloud Logic: Uses native tool-calling/structured output
+        # Cloud Logic: Uses structured output
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert legal analyst. Return a flat JSON structure."),
+            ("system", system_instruction),
             ("user", "Contract Content:\n{contract_text}")
         ])
-        return prompt | llm.with_structured_output(LegalExtraction)
-
-
-
-# import os
-# from pydantic import BaseModel, Field
-# from typing import List, Optional
-# from .get_model import get_model
-# from langchain_core.prompts import ChatPromptTemplate
-
-
-# from langchain_core.output_parsers import PydanticOutputParser
-
-
-
-# # Define what we want to find in the contract
-# class LegalExtraction(BaseModel):
-#     # Use default values so Pydantic doesn't crash on missing keys
-#     parties: List[str] = Field(default_factory=list, description="Names of the entities involved")
-#     termination_period: Optional[str] = Field(default=None, description="Notice period for termination")
-#     non_compete_clause: Optional[str] = Field(default=None, description="Summary of non-compete restrictions")
-#     salary_and_benefits: Optional[str] = Field(default=None, description="Summary of financial compensation")
-
-# def get_extraction_agent():
-#     """
-#     Extract specific data into a structured JSON format.
-#     """
-#     parser = PydanticOutputParser(pydantic_object=LegalExtraction)
-
-#     # temperature=0 is critical for consistent JSON from local models
-#     llm = get_model(temperature=0)
-
-#     if os.getenv("USE_LOCAL_AI") == "true":
-        
-#         prompt = ChatPromptTemplate.from_messages([
-#             ("system", "You are an expert legal analyst. You MUST respond ONLY with a valid JSON object."),
-#             ("user", "Extract details from this contract:\n{contract_text}\n\nFormat your response according to this schema: {format_instructions}")
-#         ]).partial(format_instructions=parser.get_format_instructions())
-#     else:
-#         prompt = ChatPromptTemplate.from_messages([
-#             ("system", (
-#                 "You are an expert legal analyst. "
-#                 "Extract the following details from the contract. "
-#                 "Return ONLY the requested fields in a flat JSON structure. "
-#                 "Do not wrap the response in keys like 'contract_details' or 'extracted_details'. "
-#                 "For parties, provide a simple list of strings containing only their names."
-#             )),
-#             ("user", "Contract Content:\n{contract_text}")
-#         ])
-    
-#      # For local models, we pipe through the parser manually for better error handling
-#     if os.getenv("USE_LOCAL_AI") == "true":
-#         return prompt | llm | parser
-#     else:
-#         return prompt | llm.with_structured_output(LegalExtraction)
-#     # .with_structured_output is the most robust way to handle this
-#     # reference: https://python.langchain.com
-#     # return prompt | llm.with_structured_output(LegalExtraction)
+        return prompt | llm.with_structured_output(LegalDiscovery)

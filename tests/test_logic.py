@@ -1,12 +1,12 @@
 import pytest
 from src.core.rag_pipeline import LegalRAG
-from src.agents.extractor import get_extraction_agent
+from src.agents.extractor import get_discovery_agent
 from src.agents.analyzer import get_analyzer_agent
 from src.core.engine import create_legal_engine
 
 
 def test_extractor_identifies_parties():
-    agent = get_extraction_agent()
+    agent = get_discovery_agent()
     test_text = "This agreement is between Google LLC and John Doe."
     
     result = agent.invoke({"contract_text": test_text})
@@ -24,7 +24,7 @@ def test_anonymization_works():
 
 
 def test_extractor_handles_missing_info():
-    agent = get_extraction_agent()
+    agent = get_discovery_agent()
     test_text = "This is a simple greeting card."
     result = agent.invoke({"contract_text": test_text})
     
